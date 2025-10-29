@@ -1,0 +1,38 @@
+---
+title: "exploratory_spaghetti"
+format: html
+editor: visual
+---
+
+```{r}
+pacman::p_load('tidyverse', 'here', 'janitor')
+```
+
+```{r}
+catch_raw <- read_csv(here::here('data', 'catch_9218.csv'))
+
+species_key <- read_csv(here::here('data', 'species_key.csv'), col_names = FALSE)
+
+
+
+
+```
+```{r}
+class(species_key_clean)
+```
+
+
+# Modify species key
+```{r}
+species_key_clean <- species_key[c(4,5),3:125] %>% 
+  row_to_names(row_number = 1) %>% 
+  clean_names() %>% 
+  remove_empty(which = "rows") %>% 
+  pivot_longer(cols = everything(),names_to = 'sp_key', values_to = 'sp_name')
+
+
+
+```
+
+
+
