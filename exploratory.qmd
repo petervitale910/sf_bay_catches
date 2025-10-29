@@ -17,9 +17,7 @@ species_key <- read_csv(here::here('data', 'species_key.csv'), col_names = FALSE
 
 
 ```
-```{r}
-class(species_key_clean)
-```
+
 
 
 # Modify species key
@@ -28,8 +26,62 @@ species_key_clean <- species_key[c(4,5),3:125] %>%
   row_to_names(row_number = 1) %>% 
   clean_names() %>% 
   remove_empty(which = "rows") %>% 
-  pivot_longer(cols = everything(),names_to = 'sp_key', values_to = 'sp_name')
+  pivot_longer(cols = everything(),names_to = 'species_code', values_to = 'species_name')%>% 
+  mutate(species_code = str_to_upper(species_code))%>%
+  mutate(species_name = str_to_title(str_to_lower(species_name)))
 
+
+
+```
+
+# Clean_catch
+
+```{r}
+catch_clean <- catch_raw %>% 
+  clean_names()
+
+catch_clean$species_code[is.na(catch_clean$species_code)] <- 'NA'
+
+
+```
+
+# Top 10 species
+
+```{r}
+top_10_catch <- catch_clean %>%
+  left_join(species_key_clean,
+            by = "species_code") %>%
+  group_by(species_name) %>%
+  summarise(total_catch = sum(number, na.rm = TRUE)) %>%
+  arrange(desc(total_catch)) %>%
+  slice_head(n = 10) 
+
+top_10_region <- catch_clean %>%
+  left_join(species_key_clean,
+            by = "species_code") %>%
+ group_by(locale, species_name) %>%
+  summarise(total_catch = sum(number, na.rm = TRUE), .groups = "drop") %>%
+  arrange(locale, desc(total_catch)) %>%
+  group_by(locale) %>%
+  slice_head(n = 10) %>%  # top 10 per locale
+  ungroup()
+
+top_5_year <- catch_clean %>%
+  left_join(species_key_clean,
+            by = "species_code") %>%
+ group_by(expr1, species_name) %>%
+  summarise(total_catch = sum(number, na.rm = TRUE), .groups = "drop") %>%
+  arrange(expr1, desc(total_catch)) %>%
+  group_by(expr1) %>%
+  slice_head(n = 5) %>%  # top 10 per locale
+  ungroup()
+
+five_best_year <- catch_clean %>%
+  mutate(year = as.numeric(expr1)) %>%  # ensure numeric
+  group_by(year) %>%
+  summarise(total_catch = sum(number, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(total_catch)) %>%
+  slice_head(n = 5)  # top 5 years by total catch
 
 
 ```
