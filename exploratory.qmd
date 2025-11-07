@@ -18,9 +18,8 @@ species_key <- read_csv(here::here('data', 'species_key.csv'), col_names = FALSE
 
 ```
 
-
-
 # Modify species key
+
 ```{r}
 species_key_clean <- species_key[c(4,5),3:125] %>% 
   row_to_names(row_number = 1) %>% 
@@ -84,7 +83,16 @@ five_best_year <- catch_clean %>%
   slice_head(n = 5)  # top 5 years by total catch
 
 
+
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'ES') %>%  
+  group_by(species_code, expr1, locale) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('year', 'locale',  'english_sole', 'northern_anchovy'))
+  
+ggplot(catch_plot, aes(x = northern_anchovy, y = english_sole))+
+  geom_point() +
+  facet_wrap(~locale, scales = 'free')
 ```
-
-
-
