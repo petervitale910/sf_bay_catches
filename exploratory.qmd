@@ -5,7 +5,7 @@ editor: visual
 ---
 
 ```{r}
-pacman::p_load('tidyverse', 'here', 'janitor')
+pacman::p_load('tidyverse', 'here', 'janitor', 'indicspecies')
 ```
 
 ```{r}
@@ -96,3 +96,29 @@ ggplot(catch_plot, aes(x = northern_anchovy, y = english_sole))+
   geom_point() +
   facet_wrap(~locale, scales = 'free')
 ```
+
+```{r}
+interaction <- catch_clean %>% 
+  select(catch_info_trawl_id, species_code, number, locale) %>% 
+  pivot_wider(names_from = species_code, values_from = number, values_fn = sum) %>% 
+  mutate(across(where(is.numeric), ~replace_na(., 0))) %>% 
+  filter(!locale == 'BLANK')
+```
+
+
+```{r}
+
+group_vector <- interaction$locale
+
+species_matrix <- as.matrix(interaction[, -c(1, 2)])
+```
+
+```{r}
+indval <- multipatt(species_matrix, group_vector, 
+                    control = how(nperm=999)) 
+```
+
+```{r}
+summary(indval, alpha = .1)
+```
+
