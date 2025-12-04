@@ -119,6 +119,389 @@ indval <- multipatt(species_matrix, group_vector,
 ```
 
 ```{r}
-summary(indval, alpha = .1)
+
+ summary <- summary(indval, alpha = .1)
+```
+```{r}
+catch_clean %>% 
+  group_by(locale) %>% 
+  summarise(count = n())
+```
+Group CENTRAL BAY  
+SSD 
+
+Group SAN PABLO BAY  
+BR   
+
+ Group SOUTH BAY  
+CT    
+
+Group SUISUN BAY  
+SB    
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'SSD') %>%  
+  group_by(species_code, expr1) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('year', 'speckled_sanddab', 'northern_anchovy'))
+
+```
+
+
+
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'BR') %>%  
+  group_by(species_code, expr1) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('year', 'bat_ray', 'northern_anchovy'))
+  
+ggplot(catch_plot, aes(x = northern_anchovy, y = bat_ray))+
+  geom_point() 
+```
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'CT') %>%  
+  group_by(species_code, expr1) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('year', 'california_tonguefish', 'northern_anchovy'))
+  
+ggplot(catch_plot, aes(x = northern_anchovy, y = california_tonguefish))+
+  geom_point() 
+```
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'SB') %>%  
+  group_by(species_code, expr1) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('year', 'striped_bass', 'northern_anchovy'))
+  
+ggplot(catch_plot, aes(x = northern_anchovy, y = striped_bass))+
+  geom_point() 
+```
+
+Group CENTRAL BAY  
+SSD 
+
+
+
+```{r}
+library(MASS)
+
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'SSD') %>% 
+  mutate(in_region = ifelse(locale == 'CENTRAL BAY', TRUE, FALSE)) %>% 
+  group_by(species_code, catch_info_trawl_id, in_region) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('trawl_id', 'in_region', 'northern_anchovy', 'speckled_sanddab')) 
+
+catch_plot[is.na(catch_plot)] <- 0
+
+a <- mean(catch_plot$northern_anchovy)
+b <- sd(catch_plot$northern_anchovy)
+
+catch_plot <- catch_plot %>% 
+  mutate(northern_anchovy_z = (northern_anchovy - a)/b,
+         presence = ifelse(speckled_sanddab > 0, 1,0),
+         abundance = ifelse(speckled_sanddab > 0, speckled_sanddab, NA))
+
+m1 <- glm(presence ~ northern_anchovy_z * in_region, data = catch_plot, family = binomial(link = 'logit'))
+
+m2 <- glm.nb(abundance ~ northern_anchovy_z * in_region, data = catch_plot)
+
+summary(m1)
+
+summary(m2)
+
+grid_data <- expand_grid(in_region = c(TRUE, FALSE),
+  northern_anchovy_z = seq(min(catch_plot$northern_anchovy_z), max(catch_plot$northern_anchovy_z), by = 1))
+
+predict_pres <-  predict(m1,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+predict_abu <-  predict(m2,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+pred_pres_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_pres$fit,
+    se = predict_pres$se.fit,
+    pred_tbs = plogis(fit_link),
+    lower = plogis(fit_link - 1.96*se),
+    upper = plogis(fit_link + 1.96*se)
+  )
+
+pred_abu_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_abu$fit,
+    se = predict_abu$se.fit,
+    pred_tbs = exp(fit_link),
+    lower = exp(fit_link - 1.96*se),
+    upper = exp(fit_link + 1.96*se)
+  )
+
+# Merge predictions 
+combined <- pred_pres_result %>% 
+  mutate(
+    expected_count = pred_tbs * pred_abu_result$pred_tbs,
+    
+    lower_expected = lower * pred_abu_result$lower,
+    upper_expected = upper * pred_abu_result$upper
+  )
+
+ggplot(combined, aes(northern_anchovy_z, expected_count))+
+  facet_wrap(~in_region)+
+  geom_line()+
+  geom_ribbon(aes(ymin = lower_expected, ymax = upper_expected))
+```
+
+
+Group SAN PABLO BAY  
+BR   
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'BR') %>% 
+  mutate(in_region = ifelse(locale == 'SAN PABLO BAY', TRUE, FALSE)) %>% 
+  group_by(species_code, catch_info_trawl_id, in_region) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('trawl_id', 'in_region', 'northern_anchovy', 'bat_ray')) 
+
+catch_plot[is.na(catch_plot)] <- 0
+
+a <- mean(catch_plot$northern_anchovy)
+b <- sd(catch_plot$northern_anchovy)
+catch_plot <- catch_plot %>% 
+  mutate(northern_anchovy_z = (northern_anchovy - a)/b)
+
+m2 <- glm.nb(bat_ray ~ northern_anchovy_z * in_region, data = catch_plot)
+
+summary(m2)
+
+grid_data <- expand_grid(
+  trawl_id = seq(0, 500, by = 1),
+  in_region = c(TRUE, FALSE),
+  northern_anchovy_z = mean(catch_plot$northern_anchovy_z, na.rm = TRUE),
+  bat_ray = mean(catch_plot$bat_ray, na.rm = TRUE))   
+
+predict_sb <- predict(m2,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+pred_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_sb$fit,
+    se = predict_sb$se.fit,
+    pred_tbs = exp(fit_link),
+    lower = exp(fit_link - 1.96*se),
+    upper = exp(fit_link + 1.96*se)
+  )
+
+ggplot(pred_result, aes(northern_anchovy_z, pred_tbs))+
+  facet_wrap(~in_region)+
+  geom_line()+
+  geom_ribbon(aes(ymin = lower, ymax = upper))
+```
+
+ Group SOUTH BAY  
+CT    
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'CT') %>% 
+  mutate(in_region = ifelse(locale == 'SOUTH BAY', TRUE, FALSE)) %>% 
+  group_by(species_code, catch_info_trawl_id, in_region) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('trawl_id', 'in_region', 'northern_anchovy', 'ca_tonguefish'))
+
+catch_plot[is.na(catch_plot)] <- 0
+
+a <- mean(catch_plot$northern_anchovy)
+b <- sd(catch_plot$northern_anchovy)
+catch_plot <- catch_plot %>% 
+  mutate(northern_anchovy_z = (northern_anchovy - a)/b)
+
+
+
+m3 <- glm.nb(ca_tonguefish ~ northern_anchovy_z * in_region, data = catch_plot)
+
+summary(m3)
+
+```
+
+Group SUISUN BAY  
+SB
+
+```{r}
+catch_plot <- catch_clean %>% 
+  filter(species_code == 'NA' | species_code == 'SB') %>% 
+  mutate(in_region = ifelse(locale == 'SUISUN BAY', TRUE, FALSE)) %>% 
+  group_by(species_code, catch_info_trawl_id, in_region) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('trawl_id', 'in_region', 'northern_anchovy', 'striped_bass'))
+
+catch_plot[is.na(catch_plot)] <- 0
+
+a <- mean(catch_plot$northern_anchovy)
+b <- sd(catch_plot$northern_anchovy)
+catch_plot <- catch_plot %>% 
+  mutate(northern_anchovy_z = (northern_anchovy - a)/b)
+
+
+m1 <- glm.nb(striped_bass ~ northern_anchovy_z * in_region, data = catch_plot)
+
+summary(m1)
+
+grid_data <- expand_grid(
+  trawl_id = seq(0, 500, by = 1),
+  in_region = c(TRUE, FALSE),
+  northern_anchovy_z = mean(catch_plot$northern_anchovy_z, na.rm = TRUE),
+  striped_bass = mean(catch_plot$striped_bass, na.rm = TRUE))   
+
+predict_sb <- predict(m1,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+pred_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_sb$fit,
+    se = predict_sb$se.fit,
+    pred_tbs = exp(fit_link),
+    lower = exp(fit_link - 1.96*se),
+    upper = exp(fit_link + 1.96*se)
+  )
+
+ggplot(pred_result, aes(northern_anchovy, pred_tbs))+
+  facet_wrap(~in_region)+
+  geom_line()+
+  geom_ribbon(aes(ymin = lower, ymax = upper))
+```
+
+```{r}
+predict_indicator <- function(df, sp_code, region){
+
+species_name <- species_key_clean %>% 
+  filter(species_code == sp_code) %>% 
+  pull(species_name) %>% 
+  make_clean_names()
+  
+
+
+catch_plot <- df %>% 
+  filter(species_code == 'NA' | species_code == sp_code) %>% 
+  mutate(in_region = ifelse(locale == region, TRUE, FALSE)) %>% 
+  group_by(species_code, catch_info_trawl_id, in_region) %>% 
+  summarize(count = sum(number)) %>% 
+  pivot_wider(names_from = species_code,
+              values_from = count) %>% 
+  set_names(c('trawl_id', 'in_region', 'northern_anchovy', species_name)) 
+
+catch_plot[is.na(catch_plot)] <- 0
+
+a <- mean(catch_plot$northern_anchovy)
+b <- sd(catch_plot$northern_anchovy)
+
+catch_plot <- catch_plot %>% 
+  mutate(northern_anchovy_z = (northern_anchovy - a)/b,
+         presence = ifelse(speckled_sanddab > 0, 1,0),
+         abundance = ifelse(speckled_sanddab > 0, speckled_sanddab, NA))
+
+m1 <- glm(presence ~ northern_anchovy_z * in_region, data = catch_plot, family = binomial(link = 'logit'))
+
+m2 <- glm.nb(abundance ~ northern_anchovy_z * in_region, data = catch_plot)
+
+sum_m1 <- summary(m1)
+
+sum_m2 <- summary(m2)
+
+grid_data <- expand_grid(in_region = c(TRUE, FALSE),
+  northern_anchovy_z = seq(min(catch_plot$northern_anchovy_z), max(catch_plot$northern_anchovy_z), by = 1))
+
+predict_pres <-  predict(m1,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+predict_abu <-  predict(m2,
+                      newdata = grid_data,
+                      type = "link",
+                      se.fit = TRUE)
+
+pred_pres_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_pres$fit,
+    se = predict_pres$se.fit,
+    pred_tbs = plogis(fit_link),
+    lower = plogis(fit_link - 1.96*se),
+    upper = plogis(fit_link + 1.96*se)
+  )
+
+pred_abu_result <- grid_data %>% 
+  mutate(
+    fit_link = predict_abu$fit,
+    se = predict_abu$se.fit,
+    pred_tbs = exp(fit_link),
+    lower = exp(fit_link - 1.96*se),
+    upper = exp(fit_link + 1.96*se)
+  )
+
+# Merge predictions 
+combined <- pred_pres_result %>% 
+  mutate(
+    expected_count = pred_tbs * pred_abu_result$pred_tbs,
+    
+    lower_expected = lower * pred_abu_result$lower,
+    upper_expected = upper * pred_abu_result$upper
+  )
+
+plot <- ggplot(combined, aes(northern_anchovy_z, expected_count))+
+  facet_wrap(~in_region)+
+  geom_line()+
+  geom_ribbon(aes(ymin = lower_expected, ymax = upper_expected))
+
+return(list(
+  stage1_summary = sum_m1,
+  stage2_summary = sum_m2,
+  stage1_pred = pred_pres_result,
+  stage2_pred = pred_abu_result,
+  combined_pred = combined,
+  plot = plot
+))
+}
+```
+CENTRAL BAY  
+SSD 
+
+```{r}
+sanddab <- predict_indicator(catch_clean, 'SSD', 'CENTRAL BAY')
+```
+```{r}
+sanddab$plot  
 ```
 
